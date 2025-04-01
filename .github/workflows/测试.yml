@@ -1,5 +1,4 @@
-
-name: 提取 init_boot.img
+name: 提取 boot.img 和 init_boot.img
 
 on:
   workflow_dispatch:
@@ -10,7 +9,7 @@ on:
         default: 'https://mirrorbits.lineageos.org/full/tissot/20230425/lineage-19.1-20230425-nightly-tissot-signed.zip'
 
 jobs:
-  YIJIANTIQU:
+  EXTRACT_IMAGES:
     runs-on: ubuntu-latest
     steps:
       - name: 安装依赖
@@ -31,7 +30,7 @@ jobs:
           aria2c -s 10 -x 10 -d ~/rom_extract -o firmware.zip "${{ github.event.inputs.rom_url }}"
           unzip -o ~/rom_extract/firmware.zip -d ~/rom_extract
 
-      - name: 提取 init_boot.img
+      - name: 提取 boot.img 和 init_boot.img
         run: |
           mkdir -p ~/extracted_images
           # 查找 payload.bin 文件
@@ -40,26 +39,33 @@ jobs:
             echo "❌ 未找到 payload.bin 文件"
             exit 1
           fi
-          # 使用 payload-dumper-go 提取
+          # 提取 boot.img 和 init_boot.img
+          payload-dumper-go -o ~/extracted_images -p boot $PAYLOAD_PATH
           payload-dumper-go -o ~/extracted_images -p init_boot $PAYLOAD_PATH
           # 检查是否提取成功
-          if [ ! -f ~/extracted_images/init_boot.img ]; then
-            echo "❌ init_boot.img 提取失败"
+          if [ ! -f ~/extracted_images/boot.img ] && [ ! -f ~/extracted_images/init_boot.img ]; then
+            echo "❌ 未找到 boot.img 或 init_boot.img"
             exit 1
+          fi
+          # 如果存在 init_boot.img，则删除 boot.img
+          if [ -f ~/extracted_images/init_boot.img ]; then
+            echo "✅ init_boot.img 已提取，删除 boot.img"
+            rm -f ~/extracted_images/boot.img
           fi
 
       - name: 生成信息文件
         run: |
           echo "提交日期：$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S')" > info.md
           echo "ROM 下载直链：${{ github.event.inputs.rom_url }}" >> info.md
-          echo "镜像大小：$(du -h ~/extracted_images/init_boot.img | cut -f1)" >> info.md
+          echo "提取的文件：" >> info.md
+          ls -lh ~/extracted_images | awk '{print $9 " - " $5}' >> info.md
 
       - name: 上传镜像及信息
         uses: ncipollo/release-action@v1.12.0
         with:
           artifacts: |
-            ~/extracted_images/init_boot.img
+            ~/extracted_images/*
             info.md
           bodyfile: "info.md"
-          tag: "INIT_BOOT_${{ env.BUILD_TIME }}_${{ github.run_id }}"
+          tag: "EXTRACT_${{ env.BUILD_TIME }}_${{ github.run_id }}"
           token: ${{ secrets.GITHUB_TOKEN }}
