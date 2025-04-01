@@ -1,0 +1,65 @@
+
+name: 提取 init_boot.img
+
+on:
+  workflow_dispatch:
+    inputs:
+      rom_url:
+        description: 'ROM 下载直链'
+        required: true
+        default: 'https://mirrorbits.lineageos.org/full/tissot/20230425/lineage-19.1-20230425-nightly-tissot-signed.zip'
+
+jobs:
+  YIJIANTIQU:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 安装依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y aria2 unzip
+          # 下载预编译的 payload-dumper-go（使用最新版本）
+          wget $(curl -s https://api.github.com/repos/ssut/payload-dumper-go/releases/latest | grep "browser_download_url" | grep "linux_amd64" | cut -d '"' -f 4)
+          tar -xzf payload-dumper-go_*.tar.gz
+          chmod +x payload-dumper-go
+          sudo mv payload-dumper-go /usr/local/bin/
+          BUILD_TIME=$(TZ=Asia/Shanghai date +"%m%d%H%M")
+          echo "BUILD_TIME=$BUILD_TIME" >> $GITHUB_ENV
+
+      - name: 下载并解压 ROM
+        run: |
+          mkdir ~/rom_extract
+          aria2c -s 10 -x 10 -d ~/rom_extract -o firmware.zip "${{ github.event.inputs.rom_url }}"
+          unzip -o ~/rom_extract/firmware.zip -d ~/rom_extract
+
+      - name: 提取 init_boot.img
+        run: |
+          mkdir -p ~/extracted_images
+          # 查找 payload.bin 文件
+          PAYLOAD_PATH=$(find ~/rom_extract -name "payload.bin" | head -n 1)
+          if [ -z "$PAYLOAD_PATH" ]; then
+            echo "❌ 未找到 payload.bin 文件"
+            exit 1
+          fi
+          # 使用 payload-dumper-go 提取
+          payload-dumper-go -o ~/extracted_images -p init_boot $PAYLOAD_PATH
+          # 检查是否提取成功
+          if [ ! -f ~/extracted_images/init_boot.img ]; then
+            echo "❌ init_boot.img 提取失败"
+            exit 1
+          fi
+
+      - name: 生成信息文件
+        run: |
+          echo "提交日期：$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S')" > info.md
+          echo "ROM 下载直链：${{ github.event.inputs.rom_url }}" >> info.md
+          echo "镜像大小：$(du -h ~/extracted_images/init_boot.img | cut -f1)" >> info.md
+
+      - name: 上传镜像及信息
+        uses: ncipollo/release-action@v1.12.0
+        with:
+          artifacts: |
+            ~/extracted_images/init_boot.img
+            info.md
+          bodyfile: "info.md"
+          tag: "INIT_BOOT_${{ env.BUILD_TIME }}_${{ github.run_id }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
