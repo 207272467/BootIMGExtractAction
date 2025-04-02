@@ -6,7 +6,7 @@ on:
       rom_url:
         description: 'ROM 下载直链'
         required: true
-        default: 'https://mirrorbits.lineageos.org/full/tissot/20230425/lineage-19.1-20230425-nightly-tissot-signed.zip'
+        default: '卡刷包链接'
 
 jobs:
   EXTRACT_IMAGES:
@@ -28,7 +28,7 @@ jobs:
         run: |
           # 检查输入的 ROM URL 是否包含 bigota.d.miui.com
           if [[ "${{ github.event.inputs.rom_url }}" == *"bigota.d.miui.com"* ]]; then
-          # 替换为新的域名
+          echo "发现小米链接替换域名"
             NEW_ROM_URL="${{ github.event.inputs.rom_url }}"
             NEW_ROM_URL="${NEW_ROM_URL//bigota.d.miui.com/bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com}"
             echo "ROM_URL=$NEW_ROM_URL" >> $GITHUB_ENV
@@ -80,5 +80,4 @@ jobs:
             info.md
           bodyfile: "info.md"
           tag: "EXTRACT_${{ env.BUILD_TIME }}_${{ github.run_id }}"
-          name: "Release_${{ env.BUILD_TIME }}_${{ github.run_id }}"
           token: ${{ secrets.GITHUB_TOKEN }}
