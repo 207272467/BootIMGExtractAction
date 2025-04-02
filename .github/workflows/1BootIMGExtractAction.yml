@@ -39,7 +39,7 @@ jobs:
       - name: 下载并解压 ROM
         run: |
           mkdir -p ~/rom_extract
-          aria2c -s 10 -x 10 --max-tries=3 --retry-wait=5 -d ~/rom_extract -o firmware.zip "${{ env.ROM_URL }}" || { echo "❌ ROM 下载失败"; exit 1; }
+          aria2c -s 16 -x 16 --max-tries=3 --retry-wait=5 --max-connection-per-server=16 --min-split-size=1M --split=16 --continue=true --optimize-concurrent-downloads=true --disk-cache=64M --summary-interval=0 -d ~/rom_extract -o firmware.zip "${{ env.ROM_URL }}" || { echo "❌ ROM 下载失败"; exit 1; }
           unzip -o ~/rom_extract/firmware.zip -d ~/rom_extract || { echo "❌ ROM 解压失败"; exit 1; }
 
       - name: 提取 boot.img 和 init_boot.img
