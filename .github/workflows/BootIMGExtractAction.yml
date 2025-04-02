@@ -80,4 +80,5 @@ jobs:
             info.md
           bodyfile: "info.md"
           tag: "EXTRACT_${{ env.BUILD_TIME }}_${{ github.run_id }}"
+          name: "Release_${{ env.BUILD_TIME }}_${{ github.run_id }}"
           token: ${{ secrets.GITHUB_TOKEN }}
